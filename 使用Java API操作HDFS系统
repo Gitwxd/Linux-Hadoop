@@ -59,6 +59,21 @@ public class HdfsClientDemo {
 		boolean mkdirs = fs.mkdirs(new Path("/testmkdir/aaa"));
 		System.out.println(mkdirs);
 	}
+	
+	//列出根目录下的文件
+	@Test
+	public void testLs() throws  Exception{
+		
+		RemoteIterator<LocatedFileStatus> lf = fs.listFiles(new Path("/"), true);
+		while (lf.hasNext()){
+			LocatedFileStatus fileStatus = lf.next();
+			System.out.println("blocksize:"+ fileStatus.getBlockSize());
+			System.out.println();
+			System.out.println("ower:"+ fileStatus.getOwner());
+			System.out.println("name:"+ fileStatus.getPath().getName());
+
+		}		
+	}
 
 	public static void main(String[] args) throws Exception {
 
