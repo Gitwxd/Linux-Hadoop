@@ -38,6 +38,27 @@ public class HdfsClientDemo {
 		fs.copyToLocalFile(new Path("/txt.copy"), new Path("E:/"));
 		fs.close();
 	}
+	
+	//打印配置参数
+	@Test
+	public void testConf() {
+
+		Iterator<Entry<String, String>> it = cfg.iterator();
+
+		while (it.hasNext()) {
+			Entry<String, String> ent = it.next();
+			System.out.println(ent.getKey() + ":" + ent.getValue());
+
+		}
+	}
+	
+	//创建节点
+	@Test 
+	public void testMkdir() throws  Exception{
+		
+		boolean mkdirs = fs.mkdirs(new Path("/testmkdir/aaa"));
+		System.out.println(mkdirs);
+	}
 
 	public static void main(String[] args) throws Exception {
 
