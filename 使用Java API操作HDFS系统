@@ -1,0 +1,55 @@
+package top.dbwxd.bigdata.hdfs;
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.junit.Before;
+import org.junit.Test;
+
+public class HdfsClientDemo {
+
+	FileSystem fs = null;
+
+//链接测试
+@Before 
+	public void init() throws Exception {
+
+		Configuration cfg = new Configuration();
+
+		cfg.set("fs.defaultFS", "hdfs://mini1:9000");
+
+		// 创建一个文件操作系统的客户端实例对象
+		fs = FileSystem.get(cfg);
+	}
+
+	@Test
+	public void testUpload() throws Exception {
+		//Thread.sleep(5000);
+		fs.copyFromLocalFile(new Path("c:/qukuailian .txt"), new Path(
+				"/txt.copy"));
+		fs.close();
+
+	}
+
+	public static void main(String[] args) throws Exception {
+
+		Configuration cfg = new Configuration();
+
+		cfg.set("fs.defaultFS", "hdfs://mini1:9000");
+
+		// 创建一个文件操作系统的客户端实例对象
+		FileSystem fs = FileSystem.get(cfg);
+
+		//Thread.sleep(5000);
+		fs.copyFromLocalFile(new Path("c:/qukuailian .txt"), new Path(
+				"/txt.copy"));
+		fs.close();
+	}
+
+}
+
+
+----------------------------------------------分割线------------------------------------------------------------------------
+问题：--导入包错误
+     --参数问题 服务器拒绝登录（将服务器的用户名进行配置）
+     
