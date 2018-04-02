@@ -21,7 +21,7 @@ public class HdfsClientDemo {
 		// 创建一个文件操作系统的客户端实例对象
 		fs = FileSystem.get(cfg);
 	}
-
+	//上传
 	@Test
 	public void testUpload() throws Exception {
 		//Thread.sleep(5000);
@@ -29,6 +29,14 @@ public class HdfsClientDemo {
 				"/txt.copy"));
 		fs.close();
 
+	}
+	
+	//下载
+	@Test
+	public void testDownload() throws  Exception{
+		
+		fs.copyToLocalFile(new Path("/txt.copy"), new Path("E:/"));
+		fs.close();
 	}
 
 	public static void main(String[] args) throws Exception {
