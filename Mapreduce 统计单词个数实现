@@ -97,3 +97,14 @@ public class WordcountDriver {
 		System.exit(res?0:1);	
 	}
 }
+
+---------------------------------------------------------------------------------------------------------------------------------
+notice：
+1、提前将要计数的文件上传到hdfs的目录下
+2、输出目录不能存在之前运行的结果，否则会报错
+3、可能用到的命令：
+--运行jar包
+$ hadoop jar wordcount.jar top.dbwxd.bigdata.mr.wordcount.demo.WordcountDriver /wordcount/input /wordcount/output
+             jar名称        类名                                                hdfs存放输入的路径  输出路径
+--查看结果
+$ hadoop fs -cat /wordcount/output/part-r-00000 |more
