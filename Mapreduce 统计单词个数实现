@@ -1,0 +1,99 @@
+需求：通过指定的文本，输出文本中各个单词的数量
+----------------------------------------------------------------------------------------------------------------------
+思考：需要开发三个类，mapper、reducer和driver
+其中mapper中实现业务逻辑，reducer对mapper输出的结果内容进行二次处理，driver相当于yarn集群客户端，在此封装我们的mr程序的相关运行参数，指定jar包
+----------------------------------------------------------------------------------------------------------------------
+package top.dbwxd.bigdata.mr.wordcount.demo;
+import java.util.HashMap;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+/**
+ * KEYIN:一行文本的起始偏移量
+ * VALUEIN：
+ * KEYOUT
+ * VALUEOUT
+ * @author Jsckson W
+ *
+ */
+public class WordcountMapper extends Mapper<LongWritable, Text, Text, IntWritable>{
+	@Override	
+	protected void map(LongWritable key, Text value,Context context) throws java.io.IOException ,InterruptedException {
+		
+		//
+		String line = value.toString();
+		//
+		String[] words = line.split(" ");
+		//
+		for (String word:words){
+			context.write(new Text(word), new IntWritable(1));
+			
+		}			
+	};	
+}
+-----------------------------------------------------------------------------------------------------------------------------------
+package top.dbwxd.bigdata.mr.wordcount.demo;
+import java.util.Iterator;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+public class WordcountReducer extends Reducer<Text, IntWritable, Text, IntWritable>{
+
+	@Override
+	protected void reduce(Text key, Iterable<IntWritable> values, Context context) throws java.io.IOException ,InterruptedException {
+		
+		int count=0;
+		Iterator<IntWritable> iterator = values.iterator();
+		 for (IntWritable value:values){
+			 count+=value.get();
+		 }
+		
+		 context.write(key, new IntWritable(count));			 
+	};
+}
+---------------------------------------------------------------------------------------------------------------------------------
+package top.dbwxd.bigdata.mr.wordcount.demo;
+import java.io.IOException;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+/**
+ * 相当于yarn的集群的客户端
+ * @author Jsckson W
+ *
+ */
+public class WordcountDriver {
+	public static void main(String[] args) throws Exception {
+		
+		Configuration conf = new Configuration();
+		//conf.set("mapreduce.framework.name", "yarn");
+		//conf.set("yarn.resourcemanager", "mini1");
+		Job job = Job.getInstance(conf);
+		
+		job.setJarByClass(WordcountDriver.class);
+		//指定类
+		job.setMapperClass(WordcountMapper.class);
+		job.setReducerClass(WordcountReducer.class);
+		//指定	mapper输出类型
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(IntWritable.class);
+		
+		//指定 reducer的输出类型
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(IntWritable.class);
+		
+		//指定原数据
+		FileInputFormat.setInputPaths(job, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+		
+		//
+		//job.submit();
+		boolean res = job.waitForCompletion(true);
+		System.exit(res?0:1);	
+	}
+}
