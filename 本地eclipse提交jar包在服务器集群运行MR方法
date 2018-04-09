@@ -80,5 +80,60 @@
 	}
 
     
-    
+-----------------------------------------------------------Driver--------------------------------------------------------
+package top.dbwxd.bigdata.mr.wordcount.demo;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+/**
+ * 相当于yarn的集群的客户端
+ * @author Jsckson W
+ *
+ */
+public class WordcountDriver {
+	public static void main(String[] args) throws Exception {
+		
+		Configuration conf = new Configuration();
+		
+		//本地的情况下 可以不需要配置
+		//conf.set("mapreduce.framework.name", "yarn");
+		//conf.set("yarn.resourcemanager", "mini1");
+		//conf.set("mapreduce.framework.name", "local");
+		//conf.set("fs.defauleFS", "file:///");
+		//conf.set("fs.defauleFS", "hdfs:mini1:9000");
+		Job job = Job.getInstance(conf);
+		
+		//指定程序所在的jar包路径
+		job.setJar("F:/ExportJar/wordcount.jar");
+		job.setJarByClass(WordcountDriver.class);
+		//指定类
+		job.setMapperClass(WordcountMapper.class);
+		job.setReducerClass(WordcountReducer.class);
+		//指定	mapper输出类型
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(IntWritable.class);
+		
+		//指定 reducer的输出类型
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(IntWritable.class);
+		
+		//指定原数据
+		FileInputFormat.setInputPaths(job, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+		
+		//
+		//job.submit();
+		boolean res = job.waitForCompletion(true);
+		System.exit(res?0:1);
+		
+		
+	}
+}
+
     
