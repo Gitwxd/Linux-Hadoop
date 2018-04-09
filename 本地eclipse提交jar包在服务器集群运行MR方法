@@ -1,0 +1,84 @@
+配置好core-site.xml、mapred-site.xml、yarn-site.xml
+------------------------------------------------------core-site.xml------------------------------------------------------------------
+<configuration>
+<property>
+  <name>fs.defaultFS</name>
+  <value>hdfs://mini1:9000</value>
+</property>
+
+<property>
+  <name>hadoop.tmp.dir</name>
+  <value>/home/hadoop/hadoop/hdpdata</value>
+</property>
+</configuration>
+---------------------------------------------------------mapred-site.xml---------------------------------------------------------
+<configuration>
+    <property>
+	<name>mapreduce.framework.name</name>
+	<value>yarn</value>
+    </property>
+</configuration>
+---------------------------------------------------------yarn-site.xml-------------------------------------------------------------
+<configuration>
+
+<!-- Site specific YARN configuration properties -->
+        <property>
+		<name>yarn.resourcemanager.hostname</name>
+		<value>mini1</value>
+	</property>
+		<!-- reducer获取数据的方式 -->
+	<property>
+		<name>yarn.nodemanager.aux-services</name>
+		<value>mapreduce_shuffle</value>
+	</property>
+</configuration>
+运行时会报错，原因是linux上不识别本地的指令，需要对org.apache.hadoop.mapred里的YARNRunner进行改造，改造方法如下：
+// Setup the command to run the AM
+		List<String> vargs = new ArrayList<String>(8);
+		// vargs.add(MRApps.crossPlatformifyMREnv(jobConf,
+		// Environment.JAVA_HOME)
+		// + "/bin/java");
+		// TODO   ----
+		System.out.println(MRApps.crossPlatformifyMREnv(jobConf, Environment.JAVA_HOME) + "/bin/java");
+		System.out.println("$JAVA_HOME/bin/java");
+		vargs.add("$JAVA_HOME/bin/java");
+    
+    
+    //获取环境变量并遍历
+    for (String key : environment.keySet()) {
+			String org = environment.get(key);
+			String linux = getLinux(org);
+			environment.put(key, linux);
+		}
+    
+    // 新写方法getLinux 将环境变量进行修改
+    private String getLinux(String org) {
+		StringBuilder sb = new StringBuilder();
+		int c = 0;
+		for (int i = 0; i < org.length(); i++) {
+			if (org.charAt(i) == '%') {
+				c++;
+				if (c % 2 == 1) {
+					sb.append("$");
+				}
+			} else {
+				switch (org.charAt(i)) {
+				case ';':
+					sb.append(":");
+					break;
+
+				case '\\':
+					sb.append("/");
+					break;
+				default:
+					sb.append(org.charAt(i));
+					break;
+				}
+			}
+		}
+		return (sb.toString());
+	}
+
+    
+    
+    
