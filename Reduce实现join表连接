@@ -1,0 +1,292 @@
+1、表连接在大数据处理中是经常用到的 在这里通过一个小例子实现join
+订单数据表t_order：
+id	   date	    pid	  amount
+1001	20160710	P0001	2
+1002	20170710	P0001	3
+1002	20180710	P0002	3
+商品信息表t_product
+id	   pname	category_id	price
+P0001	 小米7	  1000	     2
+P0002	 锤子T1	  1000	     3
+P0002	 华为P10	1000	     3
+
+假如两表的数据量巨大，两表的数据是以文件的形式存储在HDFS中，需要用Mapreduce程序来实现以下的SQL查询运算： 
+select  a.id,a.date,b.name,b.category_id,b.price from t_order a join t_product b on a.pid = b.id
+
+2、实现机制：
+通过将关联的条件作为map输出的key，将两表满足join条件的数据并携带数据所来源的文件信息，发往同一个reduce task，在reduce中进行数据的串联
+
+3、实现code
+---------------------------------------------------------------InfoBean 类---------------------------------------------------
+package top.dbwxd.bigdata.mr.rjoin;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+
+import org.apache.hadoop.io.Writable;
+
+public class InfoBean implements Writable {
+
+	private int order_id;
+	private String dateString;
+	private String p_id;
+	private int amount;
+	private String pname;
+	private int category_id;
+	private float price;
+
+	// flag=0表示这个对象是封装订单表记录
+	// flag=1表示这个对象是封装产品信息记录
+	private String flag;
+
+	public InfoBean() {
+	}
+
+	public void set(int order_id, String dateString, String p_id, int amount, String pname, int category_id, float price, String flag) {
+		this.order_id = order_id;
+		this.dateString = dateString;
+		this.p_id = p_id;
+		this.amount = amount;
+		this.pname = pname;
+		this.category_id = category_id;
+		this.price = price;
+		this.flag = flag;
+	}
+
+	public int getOrder_id() {
+		return order_id;
+	}
+
+	public void setOrder_id(int order_id) {
+		this.order_id = order_id;
+	}
+
+	public String getDateString() {
+		return dateString;
+	}
+
+	public void setDateString(String dateString) {
+		this.dateString = dateString;
+	}
+
+	public String getP_id() {
+		return p_id;
+	}
+
+	public void setP_id(String p_id) {
+		this.p_id = p_id;
+	}
+
+	public int getAmount() {
+		return amount;
+	}
+
+	public void setAmount(int amount) {
+		this.amount = amount;
+	}
+
+	public String getPname() {
+		return pname;
+	}
+
+	public void setPname(String pname) {
+		this.pname = pname;
+	}
+
+	public int getCategory_id() {
+		return category_id;
+	}
+
+	public void setCategory_id(int category_id) {
+		this.category_id = category_id;
+	}
+
+	public float getPrice() {
+		return price;
+	}
+
+	public void setPrice(float price) {
+		this.price = price;
+	}
+
+	public String getFlag() {
+		return flag;
+	}
+
+	public void setFlag(String flag) {
+		this.flag = flag;
+	}
+
+	/**
+	 * private int order_id; private String dateString; private int p_id;
+	 * private int amount; private String pname; private int category_id;
+	 * private float price;
+	 */
+	@Override
+	public void write(DataOutput out) throws IOException {
+		out.writeInt(order_id);
+		out.writeUTF(dateString);
+		out.writeUTF(p_id);
+		out.writeInt(amount);
+		out.writeUTF(pname);
+		out.writeInt(category_id);
+		out.writeFloat(price);
+		out.writeUTF(flag);
+
+	}
+
+	@Override
+	public void readFields(DataInput in) throws IOException {
+		this.order_id = in.readInt();
+		this.dateString = in.readUTF();
+		this.p_id = in.readUTF();
+		this.amount = in.readInt();
+		this.pname = in.readUTF();
+		this.category_id = in.readInt();
+		this.price = in.readFloat();
+		this.flag = in.readUTF();
+
+	}
+
+	@Override
+	public String toString() {
+		return "order_id=" + order_id + ", dateString=" + dateString + ", p_id=" + p_id + ", amount=" + amount + ", pname=" + pname + ", category_id=" + category_id + ", price=" + price + ", flag=" + flag;
+	}
+}
+
+-----------------------------------------------------------------Rjoin类--------------------------------------------------------
+
+package top.dbwxd.bigdata.mr.rjoin;
+
+import java.io.IOException;
+import java.util.ArrayList;
+
+import org.apache.commons.beanutils.BeanUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.InputSplit;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class Rjoin {
+
+	static class RJoinMapper extends Mapper<LongWritable, Text, Text, InfoBean> {
+		InfoBean bean = new InfoBean();
+		Text k = new Text();
+
+		@Override
+		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+
+			String line = value.toString();
+
+			FileSplit inputSplit = (FileSplit) context.getInputSplit();
+			String name = inputSplit.getPath().getName();
+			// 通过文件名判断是哪种数据
+			String pid = "";
+			if (name.startsWith("order")) {
+				String[] fields = line.split("\t");
+				// id date pid amount
+				pid = fields[2];
+				bean.set(Integer.parseInt(fields[0]), fields[1], pid, Integer.parseInt(fields[3]), "", 0, 0, "0");
+
+			} else {
+				String[] fields = line.split("\t");
+				// id pname category_id price
+				pid = fields[0];
+				bean.set(0, "", pid, 0, fields[1], Integer.parseInt(fields[2]), Float.parseFloat(fields[3]), "1");
+
+			}
+			k.set(pid);
+			context.write(k, bean);
+		}
+
+	}
+
+	static class RJoinReducer extends Reducer<Text, InfoBean, InfoBean, NullWritable> {
+
+		@Override
+		protected void reduce(Text pid, Iterable<InfoBean> beans, Context context) throws IOException, InterruptedException {
+			InfoBean pdBean = new InfoBean();
+			ArrayList<InfoBean> orderBeans = new ArrayList<InfoBean>();
+
+			for (InfoBean bean : beans) {
+				if ("1".equals(bean.getFlag())) {	//产品的
+					try {
+						BeanUtils.copyProperties(pdBean, bean);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				} else {
+					InfoBean odbean = new InfoBean();
+					try {
+						BeanUtils.copyProperties(odbean, bean);
+						orderBeans.add(odbean);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+
+			}
+
+			// 拼接两类数据形成最终结果
+			for (InfoBean bean : orderBeans) {
+
+				bean.setPname(pdBean.getPname());
+				bean.setCategory_id(pdBean.getCategory_id());
+				bean.setPrice(pdBean.getPrice());
+
+				context.write(bean, NullWritable.get());
+			}
+		}
+	}
+
+	public static void main(String[] args) throws Exception {
+		Configuration conf = new Configuration();
+		
+		conf.set("mapred.textoutputformat.separator", "\t");
+		
+		Job job = Job.getInstance(conf);
+
+		// 指定本程序的jar包所在的本地路径
+		// job.setJarByClass(RJoin.class);
+    //指定本地的路径
+		job.setJar("F:/ExportJar/rjoin.jar");
+
+		//job.setJarByClass(RJoin.class);
+		// 指定本业务job要使用的mapper/Reducer业务类
+		job.setJarByClass(Rjoin.class);
+		job.setMapperClass(RJoinMapper.class);
+		job.setReducerClass(RJoinReducer.class);
+
+		// 指定mapper输出数据的kv类型
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(InfoBean.class);
+
+		// 指定最终输出的数据的kv类型
+		job.setOutputKeyClass(InfoBean.class);
+		job.setOutputValueClass(NullWritable.class);
+
+		// 指定job的输入原始文件所在目录
+		FileInputFormat.setInputPaths(job, new Path(args[0]));
+		// 指定job的输出结果所在目录
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+		// 将job中配置的相关参数，以及job所用的java类所在的jar包，提交给yarn去运行
+		/* job.submit(); */
+		boolean res = job.waitForCompletion(true);
+		System.exit(res ? 0 : 1);
+
+	}
+		
+	}
+
+
+
